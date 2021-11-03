@@ -1,0 +1,157 @@
+<html xmlns:th="http://www.thymeleaf.org">
+
+<head th:include="layout :: head(title=~{::title},links=~{::script})">
+<title>Upload Patients</title>
+<script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.2.16/angular.min.js"></script>
+<script src="https://rawgit.com/ghostbar/angular-file-model/master/angular-file-model.js"></script>
+<script th:src="@{/resources/js/dateTimeService.js}"
+	src="../resources/js/dateTimeService.js"></script>
+</head>
+
+<body th:include="layout :: body" th:with="content=~{::content}">
+	<div th:fragment="content">
+		
+		<script th:inline="javascript">
+		/* Otherwise Thymeleaf tries to parse Javascript as XML and breaks itself sometimes.  Sigh */
+		/*<![CDATA[*/
+			var app = angular.module("uploadPatientsApp", []);
+			var valid = false;
+			app.controller('uploadPatientsCtrl', function($scope, $http, $q) {
+				
+       		 	// Function for dealing with a CSV uplaod and show R0 results.
+				function submitCSV(file) {
+					$scope.errorMsg = "";
+					$scope.message = "";
+					$scope.uploadMsg = "";
+					$scope.success = false;
+					$scope.failure = false;
+					var deferred = $q.defer();
+					$http.post("/iTrust2/api/v1/hcp/upload", file).then(
+							function (response) {
+								$scope.uploadMsg = response.data.message;
+	         							
+							}, function (errResponse) {
+								$scope.errorMsg = "Submission failed!"
+								});
+					$http.get("/iTrust2/api/v1/R0", file).then(
+						function (response) {
+							$scope.message = "Submission is successful!";
+							$scope.R0 = response.data;
+							$scope.success = true;
+							$scope.failure = false;
+							deferred.resolve(response.data);
+							//console.log(response.data);
+							if ($scope.R0 < 1.0) {
+								$scope.population = "dies out";
+							} else if ($scope.R0 > 1.0) {
+								$scope.population = "spreading";
+							} else {
+								$scope.population = "stable";
+							}
+         							
+						}, function (errResponse) {
+							$scope.errorMsg = "Submission failed!"
+							$scope.failure = true;
+							$scope.success = false;
+							deferred.resolve(response.data);
+						});	
+					return deferred.promise;
+					
+				}
+                    
+                    
+				// Function used to read a .csv file submitted by the user
+				$scope.getFile = function() {
+					var f = document.getElementById('file').files[0],
+					r = new FileReader();
+					r.readAsText(f);
+                    	
+					r.onload = function(e) {
+						var rawLog = r.result;
+						submitCSV(rawLog);
+					};
+				}	
+			});
+			
+			
+		</script>
+
+		<div ng-app="uploadPatientsApp" ng-controller="uploadPatientsCtrl">
+			<div class="container">
+				<div class="row">
+				 <div class="col-md-12">
+			
+					<div class="panel panel-primary">
+						<div class="panel-heading">
+							<h3 class="panel-title">Calculated R0</h3>
+						</div>
+						<div class="panel-body">
+						
+						<!-- Start upload panel -->
+						  <div class = "row">
+							<div class="col-md-12">
+								<div class="panel panel-default">
+									<div class="panel-heading ">Calculated R0</div>
+										<div id="feedback" class="panel-body">
+										
+											<form>
+								  				<span style="line-height: 2;"><strong>Select a file: </strong></span><input style="line-height: 2;" type="file" name="fileChoice" id="file" value="Browse" accept=".csv" />
+								  				<br>
+								  				<button type="submit" name="submitCSVFile" ng-click="getFile()" class="btn btn-md btn-primary">Upload CSV</button>
+												<div name="success" class="text-success" style="white-space: pre;">{{message}}</div>
+
+												<div name="failure" class="text-danger" style="white-space: pre;">{{errorMsg}}</div>
+											</form>
+											
+		
+									</div>
+								</div>
+							</div>
+						</div>
+						
+						<br>
+						
+						<div class = "row">
+							<div class="col-md-12">
+								<div class="panel panel-default">
+									<div class="panel-heading ">Result</div>
+										<div class="panel-body">
+											
+											<table class="table table-bordered">
+												<caption>This is the behavior of R0 popultion.</caption>
+												<thead>
+													<tr>
+														<th>R0 Value</th>
+														<th>behaviors in population</th>
+													</tr>
+												</thead>
+												
+												<tbody>
+													<tr>
+														<td>&lt; 1</td>
+														<td>dies out</td>
+													</tr>
+													<tr>
+														<td> 1</td>
+														<td>stable</td>
+													</tr>
+													<tr>
+														<td>&gt; 1</td>
+														<td>spreading</td>
+													</tr>
+												</tbody>
+											</table>
+											
+											</br>
+											<div id="r0">The R0 value is: {{R0}}</div>
+											</br>
+											<div id="pop">The behaviors in population is: {{population}}</div>
+										</div>
+									</div>
+								</div>
+						</div>			
+					</div>
+
+</body>
+</html>
+

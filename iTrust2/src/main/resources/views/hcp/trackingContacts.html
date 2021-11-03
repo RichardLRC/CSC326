@@ -1,0 +1,256 @@
+<html xmlns:th="http://www.thymeleaf.org">
+
+<head th:include="layout :: head(title=~{::title},links=~{::script})">
+<title>Tracking Previous Contacts</title>
+<script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.2.16/angular.min.js"></script>
+<script src="https://rawgit.com/ghostbar/angular-file-model/master/angular-file-model.js"></script>
+<script th:src="@{/resources/js/dateTimeService.js}"
+	src="../resources/js/dateTimeService.js"></script>
+</head>
+
+<body th:include="layout :: body" th:with="content=~{::content}">
+	<div th:fragment="content">
+		
+		<script th:inline="javascript">
+		/* Otherwise Thymeleaf tries to parse Javascript as XML and breaks itself sometimes.  Sigh */
+		/*<![CDATA[*/
+			var app = angular.module("trackingApp", []);
+			var valid = false;
+			app.controller('trackingCtrl', function($scope, $http, $q) {
+				
+				//Function for dealing with a CSV uplaod
+				function submitCSV(file, id, depth, date) {
+					$scope.errorMsg = "";
+					$scope.message = "";
+					$scope.success = false;
+					$scope.failure = false;
+					$scope.errMsg = "";
+					$scope.msg = "";
+					var d = `${date.getFullYear()}-${date.getMonth() + 1}-${date.getDate()}`;
+
+					$http.post(`/iTrust2/api/v1/hcp/findPreviousContacts/${id}/${d}/${depth}`, file).then(
+						function (response) {
+							$scope.message = response.data.message;
+							$scope.getResult();
+         							
+						}, function (errResponse) {
+							$scope.errorMsg = errResponse.data.message;
+						});	
+					
+				}
+                  
+				//Function used to read a .csv file submitted by the user
+				$scope.getFile = function() {
+					var f = document.getElementById('file').files[0],
+					r = new FileReader();
+					r.readAsText(f);
+					r.onload = function(e) {
+						var rawLog = r.result;
+						submitCSV(rawLog, $scope.inputid, $scope.inputDepth, $scope.inputDate);
+					};
+				}							
+				
+				//Function to add dynamic table header.
+				$scope.getHeader = function() {
+					var depthN = $scope.inputDepth;		
+					var theader = '';
+					theader += '<th>Name</th>';
+					theader += '<th>Synmpton Began Date</th>';
+					for (var i = 1; i < depthN + 1; i++) {
+						theader += '<th>';
+						theader += 'n = ' + i;
+						theader += '</th>';
+					}
+					document.getElementById('dynamicTableHeader').innerHTML = theader ;
+				}
+				
+				//Function to show results
+				
+				$scope.getResult = function() {
+					$scope.results = [];
+					$scope.errMsg = "";
+					$scope.msg = "";
+					$scope.success = false;
+					$scope.failure = false;
+					$http.get("/iTrust2/api/v1/hcp/findPreviousContacts/results").then(
+						function (response) {
+							$scope.results = response.data;
+
+							if (response.data[0] != null && response.data[0].contacts != null && response.data[0].contacts[0][0] != null) {
+								$scope.arr = $scope.results[0].contacts;
+								var tbody = '';
+								tbody += '<td>';
+								tbody += $scope.results[0].name;
+								tbody += '</td>';
+								
+								tbody += '<td>';
+								tbody += $scope.results[0].infectedDate;
+								tbody += '</td>';							
+							
+								// depth: outer loop
+								for (var i = 0; i < $scope.inputDepth; i++) {
+									// each n
+									tbody += '<td>';
+									for (var j = 0; j < $scope.arr[i].length; j++) {
+									
+										if (!($scope.arr[i][j] == null) ){
+											tbody += $scope.arr[i][j] + '. ';
+										}
+									}
+									tbody += '</td>';
+								}
+								document.getElementById('myArray').innerHTML = tbody;
+								$scope.msg = "The result is shown below!";
+								$scope.success = true;
+								
+							} else if (response.data[0] != null && response.data[0].contacts == null) {
+								var tbody = '';
+								tbody += '<td>';
+								tbody += $scope.results[0].name;
+								tbody += '</td>';
+								
+								tbody += '<td>';
+								tbody += $scope.results[0].infectedDate;
+								tbody += '</td>';							
+								
+								for (var i = 0; i < $scope.inputDepth; i++) {
+									// each n
+									tbody += '<td>';
+									tbody += 'N/A';
+									tbody += '</td>';
+								}
+								
+								document.getElementById('myArray').innerHTML = tbody;
+								$scope.msg = "The result is shown below!";
+								$scope.success = true;
+								
+							}						
+						}, function (errorResponse) {
+							$scope.results = [];
+							document.getElementById('myArray').innerHTML = '';
+							$scope.errMsg = errorResponse.data.message;
+							$scope.failure = true;
+						});	
+				}
+				
+				//Function the submit button
+				$scope.submitRequest = function() {
+					document.getElementById('myArray').innerHTML = '';
+					$scope.getFile();
+					$scope.getHeader();
+					
+					$scope.results = [];
+				}
+
+			});
+			
+			
+		</script>
+
+		<div ng-app="trackingApp" ng-controller="trackingCtrl">
+			<div class="container">
+				<div class="row">
+				 <div class="col-md-12">
+			
+					<div class="panel panel-primary">
+						<div class="panel-heading">
+							<h3 class="panel-title">HCP Tracking Patients Previous Contact</h3>
+						</div>
+						<div class="panel-body">
+						
+						<!-- Start upload panel -->
+						  <div class = "row">
+							<div class="col-md-12">
+								<div class="panel panel-default">
+									<div class="panel-heading ">Upload Tracking Contacts</div>
+										<div id="feedback" class="panel-body">
+										
+											<form>
+								  				<span style="line-height: 2;"><strong>Select a file: </strong></span><input style="line-height: 2;" type="file" name="fileChoice" id="file" value="Browse" accept=".csv" />
+								  				
+											</form>	
+									</div>
+								</div>
+							</div>
+						</div>
+						
+						<br>
+						
+						<div class="row">
+							<div class="col-md-12">
+								<div class="panel panel-default">
+									<div class="panel-heading "> </div>
+										<div class="panel-body">
+											
+											<div class="form-group">
+												<label for="id">Passenger ID:</label> <input id="passengerid"
+													name="passengerid" class="form-control" ng-model="inputid"/>
+												
+											</div>
+											<div class="form-group">
+												<label for="date">Synmpton Began Date:</label> <input id="date" type="date"
+													class="form-control" ng-model="inputDate" name="date"/>
+												
+											</div>
+											<div class="form-group">
+												<label for="depth">Depth n:</label> <input id="inputDepth" type="number"
+													class="form-control" ng-model="inputDepth" name="inputDepth" value = "1"/>
+												
+											</div>
+											
+											<div class="form-group">
+												<button type="submit" class="btn btn-primary" id="submit"
+													ng-click="submitRequest()" name="submitRequest">Submit
+														Request</button>
+											</div>
+
+											<div name="success" class="text-success"
+												style="white-space: pre;">{{message}} {{msg}}</div>
+											<div name="errorMsg" class="text-danger"
+												style="white-space: pre;">{{errorMsg}} {{errMsg}}</div>
+												
+											</div>
+								</div>
+							</div>
+						</div>
+						
+						<br>
+						
+						<div class="row">
+							<div class="col-md-12">
+								<div class="panel panel-default">
+									<div class="panel-heading ">Contact List</div>
+										<div class="panel-body" >
+											<caption>Contact List:</caption>
+												<table class="table table-bordered">
+													<thead>
+														<tr id="dynamicTableHeader">
+														</tr>
+													</thead>
+													
+													<tbody>
+														<tr id = "myArray">
+															<!--<td name="passengerName">{{result.name}}</td>
+															<td name="passengerInfectedDate"> {{result.infectedDate}} </td>
+															<td > {{result.contacts[0]}} </td>-->
+															
+														</tr>
+													
+													</tbody>
+												</table>
+											
+										</div>
+									</div>
+								</div>
+							</div>
+											
+					</div>
+				</div>	
+			</div>
+		</div>
+	</div>			
+</div>
+
+</body>
+</html>
+

@@ -1,0 +1,164 @@
+<html xmlns:th="http://www.thymeleaf.org">
+
+<head th:include="layout :: head(title=~{::title},links=~{::script})">
+<title>Upload Patients</title>
+<script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.2.16/angular.min.js"></script>
+<script src="https://rawgit.com/ghostbar/angular-file-model/master/angular-file-model.js"></script>
+<script th:src="@{/resources/js/dateTimeService.js}"
+	src="../resources/js/dateTimeService.js"></script>
+</head>
+
+<body th:include="layout :: body" th:with="content=~{::content}">
+	<div th:fragment="content">
+		
+		<script th:inline="javascript">
+		/* Otherwise Thymeleaf tries to parse Javascript as XML and breaks itself sometimes.  Sigh */
+		/*<![CDATA[*/
+			var app = angular.module("uploadPatientsApp", ['file-model']);
+			var valid = false;
+			app.controller('uploadPatientsCtrl', function($scope, $http, $q) {
+									
+			   function validate_file_upload(input_element) {
+					var el = document.getElementById("feedback");
+					var fileName = input_element.value;
+					var allowed_extensions = new Array("csv");
+					var file_extension = fileName.split('.').pop();
+					for (var i = 0; i < allowed_extensions.length; i++) {
+						if (allowed_extensions[i] == file_extension) {
+								valid = true;
+								el.innerHTML = "";
+								return;
+						}
+					}
+					el.innerHTML = "Invalid file";
+					valid = false;
+				}
+				
+				$scope.result = [];
+				$scope.loadTable = function() {
+					$http.get("/iTrust2/api/v1/passenger").then(
+            			function (response) {
+              			$scope.results = response.data;
+              			
+            		}, function (rejection) {
+              			$scope.results = [];
+             			
+            		});
+				}
+				
+       		 	// Function for dealing with a CSV uplaod
+				function submitCSV(file) {
+					$scope.errorMsg = "";
+					$scope.message = "";
+					$scope.uploadMsg = "";
+					$scope.success = false;
+					$scope.failure = false;
+					var deferred = $q.defer();
+					$http.post("/iTrust2/api/v1/hcp/upload", file).then(
+						function (response) {
+							$scope.message = "Submission is successful!";
+							$scope.uploadMsg = response.data.message;
+							$scope.success = true;
+							$scope.failure = false;
+							$scope.loadTable();
+							deferred.resolve(response.data);
+         							
+						}, function (errResponse) {
+							$scope.errorMsg = "Submission failed!"
+							$scope.failure = true;
+							$scope.success = false;
+							deferred.resolve(response.data);
+						});	
+					return deferred.promise;
+					
+				}
+                    
+                    
+				// Function used to read a .csv file submitted by the user
+				$scope.getFile = function() {
+					var f = document.getElementById('file').files[0],
+					r = new FileReader();
+					r.readAsText(f);
+                    	
+					r.onload = function(e) {
+						var rawLog = r.result;
+						submitCSV(rawLog);
+					};
+				}
+				
+			});
+			
+			
+		</script>
+
+		<div ng-app="uploadPatientsApp" ng-controller="uploadPatientsCtrl">
+			<div class="container">
+				<div class="row">
+				 <div class="col-md-12">
+			
+					<div class="panel panel-primary">
+						<div class="panel-heading">
+							<h3 class="panel-title">HCP Upload Patient Record</h3>
+						</div>
+						<div class="panel-body">
+						
+						<!-- Start upload panel -->
+						  <div class = "row">
+							<div class="col-md-12">
+								<div class="panel panel-default">
+									<div class="panel-heading ">Upload Patients</div>
+										<div id="feedback" class="panel-body">
+										
+											<form>
+								  				<span style="line-height: 2;"><strong>Select a file: </strong></span><input style="line-height: 2;" type="file" name="fileChoice" id="file" value="Browse" accept=".csv" />
+								  				<br>
+								  				<button type="submit" name="submitCSVFile" ng-click="getFile()" class="btn btn-md btn-primary">Upload CSV</button>
+												<div name="success" class="text-success" style="white-space: pre;">{{message}} {{uploadMsg}}</div>
+
+												<div name="failure" class="text-danger" style="white-space: pre;">{{errorMsg}}</div>
+											</form>
+											
+		
+									</div>
+								</div>
+							</div>
+						</div>
+						
+						<br>
+						
+						<div class = "row">
+							<div class="col-md-12">
+								<div class="panel panel-default">
+									<div class="panel-heading ">Patients Table</div>
+										<div class="panel-body">
+											<table class="table table-bordered">
+												<caption>Uploaded Patient:</caption>
+												<thead>
+													<tr>
+														<th> Passenger ID </th>
+														<th> Date Sympton Began </th>
+														<th> Name </th>
+														<th> Symptom Severity Code </th>
+													</tr>
+												</thead>
+												
+												<tbody>
+													<tr name="uploadPatientRecordRow"
+														ng-repeat="result in results">
+														<td name="idCell">{{result.passengerId}}</td>
+                  										<td name="dateCell">{{result.dateSymptomBegan}}</td>
+                  										<td name="nameCell">{{result.name}}</td>
+														<td name="symptomCell">{{result.symptom}}</td>
+													</tr>
+												</tbody>
+											</table>
+											
+										</div>
+									</div>
+								</div>
+						</div>			
+					</div>
+
+</body>
+</html>
+
